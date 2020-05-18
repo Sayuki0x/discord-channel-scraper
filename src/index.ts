@@ -60,7 +60,7 @@ async function scrape() {
         );
         synced = true;
         messagesScraped = 0;
-        await sleep(10000);
+        await sleep(1000);
       }
 
       await db.sql.transaction(async (trx) => {
