@@ -1,15 +1,15 @@
 // tslint:disable: variable-name
-import chalk from 'chalk';
 import { Message, MessageAttachment, MessageEmbed } from 'discord.js';
 import log from 'electron-log';
-import knex, { Transaction } from 'knex';
+import knex from 'knex';
+import { CHANNEL_ID } from '../constants/constants';
 
 export class Database {
   public ready: boolean;
   public sql: knex<any, unknown> = knex({
     client: 'sqlite3',
     connection: {
-      filename: './db.sqlite',
+      filename: `./${CHANNEL_ID}.sqlite`,
     },
     useNullAsDefault: true,
   });

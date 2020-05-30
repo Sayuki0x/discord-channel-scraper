@@ -22,14 +22,26 @@ async function main() {
 
 // scrapes the channel
 async function scrape() {
-  const client = new Client();
+  let client: Client = new Client();
+
+  client.on('error', async (err) => {
+    log.error(err);
+    await sleep(5000);
+    client = new Client();
+  });
+
+  client.on('warn', (e) => log.warn(e));
+  client.on('debug', (e) => log.info(e));
+
   client.on('ready', async () => {
     let synced = false;
     let startTime = performance.now();
-    log.info(`Logged in as ${client.user!.tag}!`);
-    const scrapedChannel: TextChannel = (await client.channels.fetch(
+    log.info(`Logged in as ${client!.user!.tag}!`);
+
+    const scrapedChannel: TextChannel = (await client!.channels.fetch(
       CHANNEL_ID
     )) as TextChannel;
+
     const messageManager = scrapedChannel.messages;
     let topMessage = (await db.getTopMessage()) || GENESIS_MESSAGE_ID;
     let messagesScraped = 0;
@@ -42,10 +54,18 @@ async function scrape() {
       log.debug('Current top message is ' + topMessage);
       log.debug(`Scraped ${messagesScraped.toString()} so far.`);
 
-      const messages: any = await messageManager.fetch({
-        after: topMessage,
-        limit: 50,
-      });
+      let messages: any;
+
+      try {
+        messages = await messageManager.fetch({
+          after: topMessage,
+          limit: 50,
+        });
+      } catch (err) {
+        log.warn(err);
+        await sleep(2000);
+        continue;
+      }
 
       const msgList = [...messages.values()].reverse();
 
