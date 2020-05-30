@@ -1,13 +1,19 @@
 import { Channel, Client, Message, TextChannel } from 'discord.js';
 import log from 'electron-log';
 import { performance } from 'perf_hooks';
-import { CHANNEL_ID, GENESIS_MESSAGE_ID } from './constants/constants';
 import { Database } from './db/db';
 import { loadEnv } from './utils/loadEnv';
 import { sleep } from './utils/sleep';
 
 // load the environment variables
 loadEnv();
+
+export const {
+  CHANNEL_ID,
+  GENESIS_MESSAGE_ID,
+  DISCORD_TOKEN,
+  DATA_DIR,
+} = process.env;
 
 // initialize the db
 export const db = new Database();
@@ -39,11 +45,11 @@ async function scrape() {
     log.info(`Logged in as ${client!.user!.tag}!`);
 
     const scrapedChannel: TextChannel = (await client!.channels.fetch(
-      CHANNEL_ID
+      CHANNEL_ID!
     )) as TextChannel;
 
     const messageManager = scrapedChannel.messages;
-    let topMessage = (await db.getTopMessage()) || GENESIS_MESSAGE_ID;
+    let topMessage = (await db.getTopMessage()) || GENESIS_MESSAGE_ID!;
     let messagesScraped = 0;
 
     while (true) {
@@ -98,5 +104,5 @@ async function scrape() {
     }
   });
 
-  client.login(process.env.DISCORD_TOKEN);
+  client.login(DISCORD_TOKEN!);
 }

@@ -2,14 +2,14 @@
 import { Message, MessageAttachment, MessageEmbed } from 'discord.js';
 import log from 'electron-log';
 import knex from 'knex';
-import { CHANNEL_ID } from '../constants/constants';
+import { CHANNEL_ID, DATA_DIR } from '..';
 
 export class Database {
   public ready: boolean;
   public sql: knex<any, unknown> = knex({
     client: 'sqlite3',
     connection: {
-      filename: `./${CHANNEL_ID}.sqlite`,
+      filename: `${DATA_DIR}/${CHANNEL_ID}.sqlite`,
     },
     useNullAsDefault: true,
   });
