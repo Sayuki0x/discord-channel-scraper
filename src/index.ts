@@ -12,7 +12,11 @@ export const {
   CHANNEL_ID,
   GENESIS_MESSAGE_ID,
   DISCORD_TOKEN,
-  DATA_DIR,
+  SQL_HOST,
+  SQL_USER,
+  SQL_PASSWORD,
+  SQL_DATABASE,
+  SQL_PORT,
 } = process.env;
 
 // initialize the db
@@ -37,9 +41,13 @@ async function scrape() {
   });
 
   client.on('warn', (e) => log.warn(e));
-  client.on('debug', (e) => log.info(e));
+  // client.on('debug', (e) => log.info(e));
 
   client.on('ready', async () => {
+    while (!db.ready) {
+      await sleep(100);
+    }
+
     let synced = false;
     let startTime = performance.now();
     log.info(`Logged in as ${client!.user!.tag}!`);

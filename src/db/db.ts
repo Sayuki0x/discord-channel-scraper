@@ -2,16 +2,19 @@
 import { Message, MessageAttachment, MessageEmbed } from 'discord.js';
 import log from 'electron-log';
 import knex from 'knex';
-import { CHANNEL_ID, DATA_DIR } from '..';
+import { SQL_DATABASE, SQL_HOST, SQL_PASSWORD, SQL_PORT, SQL_USER } from '..';
 
 export class Database {
   public ready: boolean;
   public sql: knex<any, unknown> = knex({
-    client: 'sqlite3',
+    client: 'mysql',
     connection: {
-      filename: `${DATA_DIR}/${CHANNEL_ID}.sqlite`,
+      database: SQL_DATABASE,
+      host: SQL_HOST,
+      password: SQL_PASSWORD,
+      port: Number(SQL_PORT),
+      user: SQL_USER,
     },
-    useNullAsDefault: true,
   });
 
   constructor() {
@@ -49,7 +52,7 @@ export class Database {
       description: embed.description ? embed.description : null,
       url: embed.url ? embed.url : null,
       color: embed.color ? embed.color : null,
-      timestamp: embed.timestamp ? embed.timestamp : null,
+      timestamp: embed.timestamp ? String(embed.timestamp) : null,
       fields: embed.fields ? JSON.stringify(embed.fields) : null,
       thumbnail_url: embed.thumbnail ? embed.thumbnail.url : null,
       thumbnail_proxy_url: embed.thumbnail ? embed.thumbnail.proxyURL : null,
@@ -90,7 +93,7 @@ export class Database {
       discord_id: msg.id,
       embeds: false,
       pinned: msg.pinned,
-      timestamp: msg.createdTimestamp,
+      timestamp: String(msg.createdTimestamp),
     };
 
     const attachmentList = [...msg.attachments.values()];
@@ -137,88 +140,106 @@ export class Database {
 
   private async init(): Promise<void> {
     const tables = await this.sql.raw(
-      `SELECT name FROM sqlite_master
-       WHERE type='table'
-       ORDER BY name;`
+      `SELECT table_name FROM information_schema.tables WHERE table_schema = "${SQL_DATABASE}"`
     );
-    const tableNames = tables.map((table: any) => table.name);
+
+    // wtf mysql
+    const tableNames = tables[0].map((row: any) =>
+      row.table_name ? row.table_name : row.TABLE_NAME
+    );
+
+    log.info(tableNames);
+
+    await this.sql.raw(`SET NAMES utf8mb4;`);
+    let newDb = false;
 
     if (!tableNames.includes('posts')) {
-      await this.sql.raw(
-        `CREATE TABLE "posts" (
-          "attachments" BOOLEAN,
-          "author_avatar" TEXT,
-          "author_id" TEXT,
-          "author_username" TEXT,
-          "comment" TEXT,
-          "discord_id" TEXT UNIQUE,
-          "embeds" BOOLEAN,
-          "pinned" BOOLEAN,
-          "timestamp" INTEGER
-        );`
-      );
+      newDb = true;
+      await this.sql.schema.createTable('posts', (table) => {
+        table.boolean('attachments');
+        table.string('author_avatar');
+        table.string('author_id');
+        table.string('author_username');
+        table.specificType('comment', 'mediumtext');
+        table
+          .string('discord_id')
+          .unique()
+          .index();
+        table.boolean('embeds');
+        table.boolean('pinned');
+        table.string('timestamp');
+      });
     }
 
     if (!tableNames.includes('embeds')) {
-      await this.sql.raw(
-        `CREATE TABLE "embeds" (
-          "type" TEXT,
-          "title" TEXT,
-          "description" TEXT,
-          "url" TEXT,
-          "color" INTEGER,
-          "timestamp" INTEGER,
-          "fields" TEXT,
-          "thumbnail_url" TEXT,
-          "thumbnail_proxy_url" TEXT,
-          "thumbnail_height" INTEGER,
-          "thumbnail_width" INTEGER,
-          "image_url" TEXT,
-          "image_proxy_url" TEXT,
-          "image_height" INTEGER,
-          "image_width" INTEGER,
-          "video_url" TEXT,
-          "video_proxy_url" TEXT,
-          "video_height" INTEGER,
-          "video_width" INTEGER,
-          "author_name" TEXT,
-          "author_url" TEXT,
-          "author_icon_url" TEXT,
-          "author_proxy_icon_url" TEXT,
-          "provider_name" TEXT,
-          "provider_url" TEXT,
-          "footer_text" TEXT,
-          "footer_icon_url" TEXT,
-          "footer_proxy_icon_url" TEXT,
-          "post_id" TEXT
-        );`
-      );
+      await this.sql.schema.createTable('embeds', (table) => {
+        table.string('type');
+        table.string('title');
+        table.specificType('description', 'mediumtext');
+        table.specificType('url', 'mediumtext');
+        table.string('color');
+        table.string('timestamp');
+        table.specificType('fields', 'mediumtext');
+        table.specificType('thumbnail_url', 'mediumtext');
+        table.specificType('thumbnail_proxy_url', 'mediumtext');
+        table.integer('thumbnail_height');
+        table.integer('thumbnail_width');
+        table.specificType('image_url', 'mediumtext');
+        table.specificType('image_proxy_url', 'mediumtext');
+        table.integer('image_height');
+        table.integer('image_width');
+        table.specificType('video_url', 'mediumtext');
+        table.specificType('video_proxy_url', 'mediumtext');
+        table.integer('video_height');
+        table.integer('video_width');
+        table.string('author_name');
+        table.specificType('author_url', 'mediumtext');
+        table.specificType('author_icon_url', 'mediumtext');
+        table.specificType('author_proxy_icon_url', 'mediumtext');
+        table.string('provider_name');
+        table.specificType('provider_url', 'mediumtext');
+        table.string('footer_text');
+        table.specificType('footer_icon_url', 'mediumtext');
+        table.specificType('footer_proxy_icon_url', 'mediumtext');
+        table.string('post_id');
+      });
     }
 
     if (!tableNames.includes('attachments')) {
-      await this.sql.raw(
-        `CREATE TABLE "attachments" (
-          "attachment" TEXT,
-          "name" TEXT,
-          "id" TEXT,
-          "size" INTEGER,
-          "url" TEXT,
-          "proxy_url" TEXT,
-          "height" INTEGER,
-          "width" INTEGER,
-          "post_id" TEXT,
-          "buffer" BLOB
-        );`
-      );
+      await this.sql.schema.createTable('attachments', (table) => {
+        table.string('attachment');
+        table.string('name');
+        table.string('id');
+        table.integer('size');
+        table.string('url');
+        table.specificType('proxy_url', 'mediumtext');
+        table.integer('height');
+        table.integer('width');
+        table.string('post_id');
+        table.specificType('buffer', 'mediumblob');
+      });
     }
 
     if (!tableNames.includes('internal')) {
-      await this.sql.raw(
-        `CREATE TABLE "internal" (
-          "topMessage" TEXT
-        );`
-      );
+      await this.sql.schema.createTable('internal', (table) => {
+        table.string('topMessage');
+      });
       await this.sql('internal').insert({});
+    }
+
+    if (newDb) {
+      await this.sql.raw(
+        'alter table attachments convert to character set utf8mb4 collate utf8mb4_unicode_ci;'
+      );
+      await this.sql.raw(
+        'alter table embeds convert to character set utf8mb4 collate utf8mb4_unicode_ci;'
+      );
+      await this.sql.raw(
+        'alter table internal convert to character set utf8mb4 collate utf8mb4_unicode_ci;'
+      );
+      await this.sql.raw(
+        'alter table posts convert to character set utf8mb4 collate utf8mb4_unicode_ci;'
+      );
     }
 
     this.ready = true;
