@@ -58,6 +58,12 @@ async function scrape() {
 
     const messageManager = scrapedChannel.messages;
     let topMessage = (await db.getTopMessage()) || GENESIS_MESSAGE_ID!;
+    let initialStart = false;
+
+    if (topMessage === GENESIS_MESSAGE_ID!) {
+      initialStart = true;
+    }
+
     let messagesScraped = 0;
 
     while (true) {
@@ -71,10 +77,16 @@ async function scrape() {
       let messages: any;
 
       try {
-        messages = await messageManager.fetch({
-          after: topMessage,
-          limit: 50,
-        });
+        if (initialStart) {
+          messages = [await messageManager.fetch(GENESIS_MESSAGE_ID!)];
+          console.log(messages);
+          initialStart = false;
+        } else {
+          messages = await messageManager.fetch({
+            after: topMessage,
+            limit: 50,
+          });
+        }
       } catch (err) {
         log.warn(err);
         await sleep(2000);
